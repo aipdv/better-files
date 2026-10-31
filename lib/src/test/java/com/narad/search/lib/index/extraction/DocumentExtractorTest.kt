@@ -1,15 +1,18 @@
 package com.narad.search.lib.index.extraction
 
+import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
 import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
 import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -540,6 +543,31 @@ class DocumentExtractorTest {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Security: PDF decode amplification (scratch file cap)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `PDF whose content stream decodes far past its file size is refused`() {
+        // About 100 KB on disk. The first content stream inflates to 96 MB of spaces before
+        // the text. Without a scratch cap pdfbox writes all of it to the cache dir.
+        val pdf = buildPdfWithPrefixStream(96L * 1024 * 1024, "Decode bomb marker text.")
+
+        val result = extractor.extractStream(pdf.inputStream(), "application/pdf")
+
+        assertNull("A PDF that decodes past the scratch cap must be refused, got: ${result?.take(80)}", result)
+    }
+
+    @Test
+    fun `PDF with a large but normal content stream still extracts`() {
+        val pdf = buildPdfWithPrefixStream(8L * 1024 * 1024, "Large stream marker text.")
+
+        val result = extractor.extractStream(pdf.inputStream(), "application/pdf")
+
+        assertNotNull("A PDF under the scratch cap must still extract", result)
+        assertTrue(result!!.contains("Large stream marker"))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Helpers: build in-memory documents with PdfBox / POI
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -556,6 +584,33 @@ class DocumentExtractorTest {
             doc.save(baos)
         }
         return baos.toByteArray()
+    }
+
+    private fun buildPdfWithPrefixStream(prefixSpaces: Long, text: String): ByteArray {
+        val baos = ByteArrayOutputStream()
+        PDDocument().use { doc ->
+            val page = PDPage()
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { cs -> writeLines(cs, listOf(text)) }
+            val textStream = page.contentStreams.next()
+            val prefix = PDStream(doc, spaces(prefixSpaces), COSName.FLATE_DECODE)
+            page.setContents(listOf(prefix, textStream))
+            doc.save(baos)
+        }
+        return baos.toByteArray()
+    }
+
+    /** [count] ASCII spaces, generated on the fly so the test never holds them in memory. */
+    private fun spaces(count: Long): InputStream = object : InputStream() {
+        private var left = count
+        override fun read(): Int = if (left-- > 0) 0x20 else -1
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (left <= 0) return -1
+            val n = minOf(len.toLong(), left).toInt()
+            b.fill(0x20, off, off + n)
+            left -= n
+            return n
+        }
     }
 
     private fun writeLines(cs: PDPageContentStream, lines: List<String>) {
