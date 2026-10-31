@@ -12,6 +12,7 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.posthog.PersonProfiles
 import com.posthog.PostHog
+import com.posthog.PostHogInterface
 import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
 import me.zhanghai.android.files.BuildConfig
@@ -67,6 +68,13 @@ internal fun shouldAskAnalytics(available: Boolean, asked: Boolean, launchCount:
 internal fun shouldStartAnalytics(available: Boolean, enabled: Boolean): Boolean =
     available && enabled
 
+/** Opt-out for a started SDK. */
+internal fun stopAnalytics(posthog: PostHogInterface) {
+    posthog.optOut()
+    // A new anonymous ID on the next opt-in.
+    posthog.reset()
+}
+
 /** Opt-in PostHog EU analytics. Before opt-in nothing is set up, stored or sent. */
 object Analytics {
     private const val KEY_LAUNCH_COUNT = "analytics_launch_count"
@@ -111,9 +119,7 @@ object Analytics {
             // A past opt-out is persisted by the SDK.
             PostHog.optIn()
         } else if (isStarted) {
-            PostHog.optOut()
-            // A new anonymous ID on the next opt-in.
-            PostHog.reset()
+            stopAnalytics(PostHog)
         }
     }
 
