@@ -15,6 +15,7 @@ import com.posthog.PostHog
 import com.posthog.PostHogInterface
 import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
+import java.io.File
 import me.zhanghai.android.files.BuildConfig
 import me.zhanghai.android.files.R
 import me.zhanghai.android.files.util.setSpanClickable
@@ -68,11 +69,14 @@ internal fun shouldAskAnalytics(available: Boolean, asked: Boolean, launchCount:
 internal fun shouldStartAnalytics(available: Boolean, enabled: Boolean): Boolean =
     available && enabled
 
-/** Opt-out for a started SDK. */
+/**
+ * Opt-out for a started SDK: stop it, so nothing more is sent. Not reset(): in posthog 6.47 it
+ * posts a feature-flag request after opt-out that carries the first anonymous ID as the device ID
+ * next to the new ID. close() sends the events already queued (PRIVACY.md says so), then stops.
+ */
 internal fun stopAnalytics(posthog: PostHogInterface) {
     posthog.optOut()
-    // A new anonymous ID on the next opt-in.
-    posthog.reset()
+    posthog.close()
 }
 
 /** Opt-in PostHog EU analytics. Before opt-in nothing is set up, stored or sent. */
@@ -120,6 +124,12 @@ object Analytics {
             PostHog.optIn()
         } else if (isStarted) {
             stopAnalytics(PostHog)
+            isStarted = false
+            // New IDs on the next opt-in: drop the SDK's stored IDs and its disk queues.
+            application.deleteSharedPreferences("posthog-android-" + BuildConfig.POSTHOG_API_KEY)
+            for (queue in listOf("posthog-disk-queue", "posthog-disk-replay-queue", "posthog-disk-logs-queue")) {
+                File(application.cacheDir, queue).deleteRecursively()
+            }
         }
     }
 
