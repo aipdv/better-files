@@ -1,6 +1,8 @@
 package com.narad.search.lib.index.extraction
 
 import com.tom_roush.pdfbox.android.PDFBoxResourceLoader
+import com.tom_roush.pdfbox.contentstream.operator.Operator
+import com.tom_roush.pdfbox.cos.COSBase
 import com.tom_roush.pdfbox.io.MemoryUsageSetting
 import com.tom_roush.pdfbox.io.ScratchFile
 import com.tom_roush.pdfbox.pdfparser.PDFParser
@@ -79,7 +81,12 @@ class DocumentExtractor(
     // anything a chunker needs and keeps a huge log or PDF from stalling or OOM-ing a run.
     internal val maxTextBytes: Int = 1024 * 1024,
     // U8: PDFs read at most this many pages. Pages beyond it are not indexed.
-    internal val maxPdfPages: Int = 500
+    internal val maxPdfPages: Int = 500,
+    // Security: a PDF runs at most this many content-stream operators, form XObjects included.
+    // pdfbox limits form nesting depth (50) but not fan-out, so a few KB of nested forms could
+    // keep the indexer busy without end while it holds INDEX_RUN_LOCK. Real pages use hundreds
+    // to a few thousand operators. Past the budget the text read so far is kept.
+    internal val maxPdfOperators: Long = 2_000_000
 ) {
 
     // -------------------------------------------------------------------------
@@ -124,12 +131,14 @@ class DocumentExtractor(
                 val parser = PDFParser(scratch.createBuffer(input), "", scratch)
                 parser.parse()
                 parser.pdDocument.use { doc ->
-                    val stripper = PDFTextStripper().apply { endPage = maxPdfPages }
+                    val stripper = BudgetedTextStripper(maxPdfOperators).apply { endPage = maxPdfPages }
                     val out = CappedWriter(maxTextBytes)
                     try {
                         stripper.writeText(doc, out)
                     } catch (_: TextCapReached) {
                         // Cap hit: keep what was written so far.
+                    } catch (_: OperatorBudgetReached) {
+                        // Budget spent: keep what was written so far.
                     }
                     out.toString().trim().ifEmpty { null }
                 }
@@ -414,6 +423,24 @@ class DocumentExtractor(
     private class TextCapReached : RuntimeException() {
         // No stack trace: this is control flow, not an error.
         override fun fillInStackTrace(): Throwable = this
+    }
+
+    /**
+     * Thrown by [BudgetedTextStripper] once the operator budget is spent. Unchecked on purpose:
+     * pdfbox swallows an IOException raised inside a form's Do operator and keeps going.
+     */
+    private class OperatorBudgetReached : RuntimeException() {
+        override fun fillInStackTrace(): Throwable = this
+    }
+
+    /** [PDFTextStripper] that counts every operator, nested forms included, against [budget]. */
+    private class BudgetedTextStripper(private val budget: Long) : PDFTextStripper() {
+        private var used = 0L
+
+        override fun processOperator(operator: Operator, operands: MutableList<COSBase>) {
+            if (++used > budget) throw OperatorBudgetReached()
+            super.processOperator(operator, operands)
+        }
     }
 
     /** Collects text up to [cap] chars, then throws [TextCapReached] so the stripper stops. */
