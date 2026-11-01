@@ -818,6 +818,8 @@
     <!-- Index0: indexing -->
     <string name="indexing_title">Indexing</string>
     <string name="navigation_indexing" translatable="false">@string/indexing_title</string>
+    <string name="navigation_local_pill">Local</string>
+    <string name="navigation_local_pill_description">Your search index stays on this phone</string>
     <string name="indexing_status_category">Status</string>
     <string name="indexing_status_idle">Not indexing</string>
     <string name="indexing_status_getting_ready">Getting ready</string>
