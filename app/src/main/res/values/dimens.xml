@@ -50,4 +50,8 @@
 
     <!-- Reduce fast scroll thumb touch target size because we have the popup menu beside it. -->
     <dimen name="afs_min_touch_target_size">24dp</dimen>
+
+    <!-- Better Files: "Local" pill on the drawer Indexing row. -->
+    <dimen name="navigation_local_pill_height">24dp</dimen>
+    <dimen name="navigation_local_pill_icon_size">16dp</dimen>
 </resources>
