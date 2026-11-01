@@ -3,6 +3,7 @@ package me.zhanghai.android.files.filelist
 import com.narad.search.lib.index.worker.IndexStage
 import java8.nio.file.Path
 import me.zhanghai.android.files.file.FileItem
+import me.zhanghai.android.files.file.MimeType
 import me.zhanghai.android.files.index.IndexingStatus
 import me.zhanghai.android.files.index.LESS_RELATED_MAX
 
@@ -151,6 +152,19 @@ internal fun <T> searchPage(
     }
     val columns = if (all) PHOTO_COLUMNS_ALL else PHOTO_COLUMNS_CHIP
     return SearchPage(head, photos, columns, mid, names, tail)
+}
+
+/**
+ * Pure: whether a file picker ([pickOptions]) may return this file. The same rule as the upstream
+ * FileListAdapter: files of a requested type only, or folders when picking a folder.
+ */
+internal fun pickAccepts(pickOptions: PickOptions?, isDirectory: Boolean, mimeType: MimeType): Boolean {
+    pickOptions ?: return true
+    return when (pickOptions.mode) {
+        PickOptions.Mode.OPEN_FILE, PickOptions.Mode.CREATE_FILE ->
+            !isDirectory && pickOptions.mimeTypes.any { it.match(mimeType) }
+        PickOptions.Mode.OPEN_DIRECTORY -> isDirectory
+    }
 }
 
 /** Pure: the only properties of `meaning_search_used`. Counts only: no words, paths or names. */
