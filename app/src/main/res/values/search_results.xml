@@ -1,0 +1,24 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Better Files: search results screen (#19). -->
+<resources>
+
+    <dimen name="search_row_padding_vertical">12dp</dimen>
+    <dimen name="search_title_padding_top">8dp</dimen>
+    <dimen name="search_chip_row_padding_vertical">8dp</dimen>
+    <dimen name="search_chip_spacing">8dp</dimen>
+    <dimen name="search_progress_padding_vertical">4dp</dimen>
+    <dimen name="search_progress_thickness">4dp</dimen>
+    <dimen name="search_less_related_height">56dp</dimen>
+    <dimen name="search_less_related_margin_top">8dp</dimen>
+
+    <!-- Material 3 filter chips on the Material 3 theme; Material 2 chips on the Material 2 theme
+         (the default on Android 10 and 11). -->
+    <style name="ThemeOverlay.BetterFiles.SearchChip" parent="">
+        <item name="chipStyle">@style/Widget.Material3.Chip.Filter</item>
+    </style>
+
+    <style name="ThemeOverlay.BetterFiles.SearchChip.Material2" parent="">
+        <item name="chipStyle">@style/Widget.MaterialComponents.Chip.Filter</item>
+    </style>
+</resources>
