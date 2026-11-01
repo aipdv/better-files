@@ -48,6 +48,10 @@ internal class SearchRowsAdapter(
         }
 
     var pickOptions: PickOptions? = null
+        set(value) {
+            field = value
+            notifyItemRangeChanged(0, itemCount, PAYLOAD_STATE_CHANGED)
+        }
 
     override fun getItemViewType(position: Int): Int = when (getItem(position)) {
         is SearchRow.Progress -> TYPE_PROGRESS
@@ -86,6 +90,10 @@ internal class SearchRowsAdapter(
             is FileItemSearchBinding -> {
                 val hit = (row as? SearchRow.Doc)?.item ?: (row as SearchRow.Weak).item
                 binding.itemLayout.isChecked = hit.file in selectedFiles
+                // A picker gets only the files it asked for: other rows are disabled, as upstream.
+                val enabled = isSelectable(hit.file)
+                binding.itemLayout.isEnabled = enabled
+                binding.menuButton.isEnabled = enabled
                 if (payloads.isEmpty()) bindFile(binding, hit, weak = row is SearchRow.Weak)
             }
         }
@@ -181,9 +189,11 @@ internal class SearchRowsAdapter(
             null
         }
         binding.itemLayout.setOnClickListener {
+            if (!isSelectable(file)) return@setOnClickListener
             if (selectedFiles.isEmpty()) listener.openFile(file) else toggleSelection(file)
         }
         binding.itemLayout.setOnLongClickListener {
+            if (!isSelectable(file)) return@setOnLongClickListener true
             if (selectedFiles.isEmpty()) toggleSelection(file) else listener.openFile(file)
             true
         }
@@ -191,12 +201,12 @@ internal class SearchRowsAdapter(
         binding.menuButton.setOnClickListener { showMenu(binding, file) }
     }
 
+    private fun isSelectable(file: FileItem) =
+        pickAccepts(pickOptions, file.attributes.isDirectory, file.mimeType)
+
     private fun toggleSelection(file: FileItem) {
+        if (!isSelectable(file)) return
         val pickOptions = pickOptions
-        if (pickOptions != null && (pickOptions.mode == PickOptions.Mode.OPEN_DIRECTORY ||
-                pickOptions.mimeTypes.none { it.match(file.mimeType) })) {
-            return
-        }
         val selected = file in selectedFiles
         if (!selected && pickOptions != null && !pickOptions.allowMultiple) {
             listener.clearSelectedFiles()
@@ -326,9 +336,6 @@ internal class SearchScreen(
             if (isShown) render()
         }
 
-    var hasResults = false
-        private set
-
     val isShown: Boolean
         get() = recyclerView.adapter === concatAdapter
 
@@ -363,7 +370,6 @@ internal class SearchScreen(
         val wasShown = isShown
         if (meaning == null) {
             this.meaning = null
-            hasResults = false
             if (wasShown) recyclerView.adapter = namesAdapter
             return wasShown
         }
@@ -406,7 +412,6 @@ internal class SearchScreen(
         val sections = meaning.sections(names, keep)
         val chips = searchChips(sections, meaning.photosAvailable)
         val page = searchPage(sections, chips, chip, lessOpen, progress)
-        hasResults = !sections.isEmpty
         if (photoColumns != page.photoColumns) {
             photoColumns = page.photoColumns
             layoutManager.spanSizeLookup.invalidateSpanIndexCache()
