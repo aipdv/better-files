@@ -40,6 +40,10 @@ val extractPdfboxTestResources by tasks.registering(Sync::class) {
 
 android {
     namespace  = "com.narad.search.lib"
+    // libc++_shared.so comes from this NDK (copyNdkLibcxx below). r26d is the NDK whose libc++_shared.so
+    // shipped (committed) in v0.1.0-beta.1, byte for byte. Keep it pinned so the tested runtime lib does
+    // not change with the AGP default NDK. F-Droid metadata: ndk: r26d.
+    ndkVersion = "26.3.11579264"
     // AGP 8.13.2 supports compileSdk up to 36.1 (AGP 8.13.0 release notes).
     compileSdk = 36
 
@@ -47,7 +51,7 @@ android {
         minSdk = 29  // G4: Android 10+ floor (build-decisions.md §1/G4)
 
         // Native ABI targets: arm64 phones plus the x86_64 emulator. No arm32:
-        // the bundled libc++_shared.so exists only for these two ABIs.
+        // copyNdkLibcxx copies libc++_shared.so for these two ABIs only.
         ndk {
             abiFilters += setOf("arm64-v8a", "x86_64")
         }
@@ -99,6 +103,50 @@ android {
 afterEvaluate {
     tasks.matching { it.name.endsWith("UnitTestJavaRes") }
         .configureEach { dependsOn(extractPdfboxTestResources) }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// libc++_shared.so from the pinned NDK (no prebuilt .so in git: F-Droid rule).
+// libdjl_tokenizer.so links it dynamically and Android does not ship it, so the
+// APK must carry it. The task copies it from the NDK sysroot into a generated
+// jniLibs dir that AGP packages (and strips) like any other native lib.
+// ─────────────────────────────────────────────────────────────────────────────
+abstract class CopyNdkLibcxx : DefaultTask() {
+    @get:InputFile @get:PathSensitive(PathSensitivity.NONE)
+    abstract val arm64: RegularFileProperty
+
+    @get:InputFile @get:PathSensitive(PathSensitivity.NONE)
+    abstract val x86_64: RegularFileProperty
+
+    @get:OutputDirectory
+    abstract val outputDir: DirectoryProperty
+
+    @TaskAction
+    fun copy() {
+        val out = outputDir.get().asFile
+        out.deleteRecursively()
+        arm64.get().asFile.copyTo(out.resolve("arm64-v8a/libc++_shared.so"))
+        x86_64.get().asFile.copyTo(out.resolve("x86_64/libc++_shared.so"))
+    }
+}
+
+val copyNdkLibcxx by tasks.registering(CopyNdkLibcxx::class) {
+    // <ndk>/toolchains/llvm/prebuilt/<host>/sysroot/usr/lib/<triple>/libc++_shared.so; one <host> dir per NDK.
+    val sysrootLib = androidComponents.sdkComponents.ndkDirectory.map { ndk ->
+        val prebuilt = ndk.dir("toolchains/llvm/prebuilt").asFile
+        val host = prebuilt.listFiles { f -> f.isDirectory }?.singleOrNull()
+            ?: error("Expected one host dir in $prebuilt. Install NDK ${android.ndkVersion}.")
+        ndk.dir("toolchains/llvm/prebuilt/${host.name}/sysroot/usr/lib")
+    }
+    arm64.set(sysrootLib.map { it.file("aarch64-linux-android/libc++_shared.so") })
+    x86_64.set(sysrootLib.map { it.file("x86_64-linux-android/libc++_shared.so") })
+    outputDir.set(layout.buildDirectory.dir("generated/ndk-libcxx"))
+}
+
+androidComponents {
+    onVariants { variant ->
+        variant.sources.jniLibs?.addGeneratedSourceDirectory(copyNdkLibcxx, CopyNdkLibcxx::outputDir)
+    }
 }
 
 // Kotlin 2.x: compilerOptions replaces the deprecated kotlinOptions DSL.
@@ -170,12 +218,12 @@ dependencies {
     // EmbeddingGemma 2 uses the same 0.33.0 Rust tokenizer engine on Android and
     // the host JVM so token IDs stay in parity.
     //
-    // Bundled native lib provenance:
-    //   lib/src/main/jniLibs/{arm64-v8a,x86_64}/libc++_shared.so is the genuine
-    //   NDK 26.3.11579264 sysroot libc++_shared.so (SHA256-verified identical to the
-    //   NDK), required because libdjl_tokenizer.so dynamically links it and Android
-    //   does not ship it in the system image. AGP strips native libs at packaging so
-    //   the committed unstripped copy is intentional.
+    // libc++_shared.so provenance:
+    //   copyNdkLibcxx (above) copies it from the sysroot of the pinned NDK
+    //   (ndkVersion, r26d) at build time. libdjl_tokenizer.so links it dynamically and
+    //   Android does not ship it in the system image. Nothing prebuilt is in git.
+    //   Until beta.2 the same r26d files were committed under src/main/jniLibs
+    //   (SHA-256 identical to the NDK).
     // -------------------------------------------------------------------------
     implementation("ai.djl.huggingface:tokenizers:0.33.0")
     runtimeOnly("ai.djl.android:tokenizer-native:0.33.0")

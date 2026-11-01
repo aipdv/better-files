@@ -7,6 +7,7 @@
 
 <me.zhanghai.android.files.ui.CheckableForegroundLinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/itemLayout"
     android:layout_width="match_parent"
     android:layout_height="?listPreferredItemHeightSmall"
@@ -44,4 +45,22 @@
             android:ellipsize="end"
             android:maxLines="1" />
     </LinearLayout>
+
+    <!-- Better Files: "Local" pill on the Indexing row. The theme's own chip style keeps M2 and M3 right. -->
+    <com.google.android.material.chip.Chip
+        android:id="@+id/localPill"
+        style="?attr/chipStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:clickable="false"
+        android:focusable="false"
+        android:contentDescription="@string/navigation_local_pill_description"
+        android:text="@string/navigation_local_pill"
+        android:visibility="gone"
+        app:chipIcon="@drawable/lock_icon_white_24dp"
+        app:chipIconSize="@dimen/navigation_local_pill_icon_size"
+        app:chipIconTint="?attr/colorPrimary"
+        app:chipMinHeight="@dimen/navigation_local_pill_height"
+        app:ensureMinTouchTargetSize="false"
+        app:shapeAppearance="@style/ShapeAppearance.Material3.Corner.Full" />
 </me.zhanghai.android.files.ui.CheckableForegroundLinearLayout>

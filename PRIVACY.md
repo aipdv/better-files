@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-10-25.
+Last updated: 2026-11-01.
 
 Better Files is a file manager with on-device search. It has no account and no servers of its own.
 
@@ -81,6 +81,8 @@ Better Files connects to the internet only for these features:
 Builds made without an analytics key (for example, builds from source) have no analytics at all. The Settings > Privacy option does not show in those builds.
 
 ## Data on your phone
+
+The search index lets you search your files by meaning. It holds file paths, pieces of text from your documents, and number vectors that describe that text (and your photos, on phones with photo search). It stays in the app's private storage on your phone and is excluded from Android backup. Other apps cannot read it. Someone with root access to your phone, or an attack that uses an Android security hole, can read it. The search index is not encrypted.
 
 - The search index and the downloaded models stay on your phone. They are excluded from Android backup.
 - Indexing keeps a short log of its own runs on your phone: the stage, counts, the battery level, whether the phone was charging or idle, free memory, and for a file that failed, its name and the error type. The log keeps at most 7 days and 500 entries. It is excluded from Android backup and is never sent.

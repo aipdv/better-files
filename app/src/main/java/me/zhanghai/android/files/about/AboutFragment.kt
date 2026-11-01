@@ -44,7 +44,7 @@ class AboutFragment : Fragment() {
     }
 
     companion object {
-        // Index0: own source repo. No upstream author card (credit stays on the Licenses screen).
-        private val GITHUB_URI = Uri.parse("https://github.com/aipdv/Index0")
+        // Better Files: own source repo. No upstream author card (credit stays on the Licenses screen).
+        private val GITHUB_URI = Uri.parse("https://github.com/aipdv/better-files")
     }
 }
