@@ -101,7 +101,10 @@ class SearchFileListLiveData(
             .mapNotNull { hit(it.filePath) }
         return MeaningResults(
             path, query, docs(true), photos(true), docs(false), photos(false), output.docsCut,
-            output.photosCut, DeviceTierDetector.detect(application).imageEmbeddingEnabled
+            output.photosCut,
+            // Name search must never break on this: no Photos chip if the check fails.
+            runCatching { DeviceTierDetector.detect(application).imageEmbeddingEnabled }
+                .getOrDefault(false)
         )
     }
 
