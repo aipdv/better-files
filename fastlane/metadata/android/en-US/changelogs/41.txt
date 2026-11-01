@@ -1,0 +1,8 @@
+- Search results show why a file matched.
+- Filter chips with counts: Documents, Photos, Names.
+- Text previews show the matched words in bold.
+- Weaker matches go in a folded "Less related" section.
+- A progress line shows while the app reads your files.
+- A "Local" label on Indexing in the menu.
+- No prebuilt native library in the source, for F-Droid builds.
+- The privacy policy says what the search index stores.
