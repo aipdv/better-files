@@ -21,8 +21,8 @@ import me.zhanghai.android.files.R
 import me.zhanghai.android.files.util.setSpanClickable
 import me.zhanghai.android.files.util.show
 
-// ponytail: one place for the policy link; pr/5 may rename the repo.
-const val PRIVACY_POLICY_URL = "https://github.com/aipdv/Index0/blob/master/PRIVACY.md"
+// ponytail: one place for the policy link (the bf.aipdv.com copy of PRIVACY.md).
+const val PRIVACY_POLICY_URL = "https://bf.aipdv.com/privacy"
 
 /** Event name to the only properties it may carry. Anything else is dropped before the queue. */
 internal val ANALYTICS_EVENTS: Map<String, Set<String>> = mapOf(
