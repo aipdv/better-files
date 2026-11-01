@@ -339,10 +339,12 @@ internal class SearchScreen(
                 var local = position
                 for (adapter in concatAdapter.adapters) {
                     if (local < adapter.itemCount) {
+                        // Clamped: the span count catches up right after the adapter swap.
+                        val spanCount = layoutManager.spanCount
                         return when {
-                            adapter === namesAdapter -> SPAN_UNIT
-                            adapter === photosAdapter -> layoutManager.spanCount / photoColumns
-                            else -> layoutManager.spanCount
+                            adapter === namesAdapter -> SPAN_UNIT.coerceAtMost(spanCount)
+                            adapter === photosAdapter -> (spanCount / photoColumns).coerceAtLeast(1)
+                            else -> spanCount
                         }
                     }
                     local -= adapter.itemCount
