@@ -36,7 +36,7 @@ internal val ANALYTICS_EVENTS: Map<String, Set<String>> = mapOf(
     "files_shared" to setOf("file_count"),
     "bookmark_added" to emptySet(),
     "file_created" to setOf("item_type"),
-    "meaning_search_used" to emptySet(),
+    "meaning_search_used" to setOf("doc_count", "photo_count", "name_count", "less_related_count"),
     "indexing_started" to emptySet(),
     "reindex_started" to emptySet(),
     "model_download_started" to emptySet(),
