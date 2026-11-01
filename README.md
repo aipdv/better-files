@@ -33,7 +33,7 @@ This is a beta.
 
 ## Build
 
-Install Android NDK 26.3.11579264 before building.
+Install Android NDK 30.0.16248370 and 26.3.11579264 before building.
 
 ```sh
 ./gradlew :app:assembleRelease
