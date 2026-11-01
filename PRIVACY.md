@@ -33,7 +33,7 @@ When you opt in, Better Files creates a random anonymous ID and stores it on you
 | File renamed, bookmark added | None |
 | Files shared | Number of files |
 | File or folder created | File or folder |
-| Meaning search used | None |
+| Meaning search used | Number of results in each section (documents, photos, names, less related) |
 | Indexing started, re-index started | None |
 | Search model download started, completed, or failed | None |
 | Overnight indexing turned on or off | On or off |
@@ -44,7 +44,7 @@ Every event also carries: the anonymous ID, the time, the app version and build,
 ### What we never collect
 
 - File or folder names, paths, or file content
-- Search queries, search results, or snippets
+- Search words, the files a search finds, their names, or snippets. Meaning search sends only the number of results in each section.
 - Your search index
 - Server addresses, user names, or passwords for network storage
 - Your IP address (PostHog discards it) or your location
