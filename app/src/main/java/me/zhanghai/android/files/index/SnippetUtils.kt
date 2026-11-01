@@ -24,6 +24,8 @@ fun fileKindFromMime(mime: String?): FileKind {
 /** How many characters of context the snippet shows before the first matched word. */
 private const val SNIPPET_LEAD = 25
 
+private val WHITESPACE_RUN = Regex("\\s+")
+
 /**
  * Build a snippet of at most [maxLen] characters that starts about [SNIPPET_LEAD] characters
  * before the first hit of any [queryTerms] in [content]. Pass meaningful terms only (see
@@ -35,14 +37,17 @@ private const val SNIPPET_LEAD = 25
  *
  * Bug Watch: "Hindi/Hinglish snippet centering breaks on Devanagari."
  *
- * @param content    Full chunk text.
+ * @param rawContent Full chunk text. Whitespace runs (newlines, tabs) become one space.
  * @param queryTerms Terms to search for (case-insensitive). Empty list means prefix window.
  * @param maxLen     Maximum character length of the returned snippet.
  * @param startsMidText True for a chunk after the first: its first characters are a raw cut, so
  *                   the snippet drops the partial first word and opens with "…".
  * @return Snippet string, trimmed, never longer than [maxLen] chars.
  */
-fun buildSnippet(content: String, queryTerms: List<String>, maxLen: Int = 160, startsMidText: Boolean = false): String {
+fun buildSnippet(rawContent: String, queryTerms: List<String>, maxLen: Int = 160, startsMidText: Boolean = false): String {
+    // One line of flowing text: a newline in the snippet would push the match out of the
+    // 2-line row. The window and the bold ranges are both computed on this collapsed text.
+    val content = WHITESPACE_RUN.replace(rawContent, " ")
     if (content.isEmpty()) return ""
     if (content.length <= maxLen && !startsMidText) return content.trim()
 
