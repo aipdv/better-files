@@ -2,6 +2,7 @@ package me.zhanghai.android.files.filelist
 
 import com.narad.search.lib.index.worker.IndexStage
 import me.zhanghai.android.files.app.filterAnalyticsEvent
+import me.zhanghai.android.files.file.MimeType
 import me.zhanghai.android.files.index.IndexingStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -154,6 +155,20 @@ class SearchSectionsTest {
         )
         val sent = filterAnalyticsEvent("meaning_search_used", props + ("query" to "elephant"))!!
         assertEquals(setOf("doc_count", "photo_count", "name_count", "less_related_count", "\$geoip_disable"), sent.keys)
+    }
+
+    // ---- Picker rule ----
+
+    @Test
+    fun `a picker gets only the file types it asked for`() {
+        fun pick(mode: PickOptions.Mode, vararg types: String) =
+            PickOptions(mode, null, true, types.map { MimeType(it) }, false, false)
+        val png = pick(PickOptions.Mode.OPEN_FILE, "image/png")
+        assertFalse(pickAccepts(png, false, MimeType("application/pdf")))
+        assertTrue(pickAccepts(png, false, MimeType("image/png")))
+        assertTrue(pickAccepts(pick(PickOptions.Mode.OPEN_FILE, "*/*"), false, MimeType("application/pdf")))
+        assertFalse(pickAccepts(pick(PickOptions.Mode.OPEN_DIRECTORY), false, MimeType("application/pdf")))
+        assertTrue(pickAccepts(null, false, MimeType("application/pdf")))
     }
 
     // ---- B7 progress ----
