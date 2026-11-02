@@ -120,6 +120,7 @@ class SearchSectionsTest {
     fun `count adds a plus only when the engine list was cut`() {
         assertEquals("14", countText(14, false))
         assertEquals("14+", countText(14, true))
+        assertEquals("0", countText(0, true))
     }
 
     @Test
