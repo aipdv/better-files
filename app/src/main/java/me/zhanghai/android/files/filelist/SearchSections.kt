@@ -59,8 +59,12 @@ internal fun <T, K> searchSections(
     return SearchSections(docs, photos, nameRows, lessDocs, lessPhotos, docsCut, photosCut)
 }
 
-/** Pure: chip count text. "+" only when the engine cut its raw list for that kind at the cap. */
-internal fun countText(rows: Int, cut: Boolean): String = if (cut) "$rows+" else rows.toString()
+/**
+ * Pure: chip count text. "+" only when the engine cut its raw list for that kind at the cap, and
+ * never on 0: a cut list of weak hits only would read "0+".
+ */
+internal fun countText(rows: Int, cut: Boolean): String =
+    if (cut && rows > 0) "$rows+" else rows.toString()
 
 /** Pure: the chips in order with their count text (none on All). No Photos chip without photo search. */
 internal fun searchChips(sections: SearchSections<*>, photosAvailable: Boolean): List<Pair<SearchChip, String?>> =
