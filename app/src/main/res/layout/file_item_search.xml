@@ -2,7 +2,7 @@
 
 <!--
   ~ Better Files: a document row on the search results screen (#19). Based on file_item_list.xml,
-  ~ which stays unchanged: name on 1 line, snippet on 2 lines, one grey reason line.
+  ~ which stays unchanged: name on 1 line, then the snippet on 2 lines or the upstream date and size.
   -->
 <me.zhanghai.android.files.ui.CheckableForegroundLinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
@@ -74,16 +74,6 @@
             android:ellipsize="end"
             android:maxLines="2"
             android:textAppearance="?textAppearanceListItemSecondary"
-            android:textColor="?android:textColorSecondary" />
-
-        <me.zhanghai.android.files.ui.AutoGoneTextView
-            android:id="@+id/reasonText"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:duplicateParentState="true"
-            android:ellipsize="end"
-            android:maxLines="1"
-            android:textAppearance="?textAppearanceCaption"
             android:textColor="?android:textColorSecondary" />
     </LinearLayout>
 
