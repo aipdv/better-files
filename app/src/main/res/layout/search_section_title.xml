@@ -9,7 +9,7 @@
     android:gravity="center_vertical"
     android:orientation="horizontal"
     android:paddingStart="@dimen/content_start_margin"
-    android:paddingEnd="@dimen/screen_edge_margin_minus_12dp_at_least_8dp"
+    android:paddingEnd="@dimen/screen_edge_margin_minus_12dp"
     android:paddingTop="@dimen/search_title_padding_top">
 
     <TextView
