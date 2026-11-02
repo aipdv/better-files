@@ -34,5 +34,7 @@
         style="?borderlessButtonStyle"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/search_see_all_margin_vertical"
+        android:layout_marginBottom="@dimen/search_see_all_margin_vertical"
         android:text="@string/search_see_all" />
 </LinearLayout>
