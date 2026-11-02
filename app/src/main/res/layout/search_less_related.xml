@@ -1,6 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 
-<!-- Better Files: the "Less related (N)" fold of the search results screen (#19). -->
+<!-- Better Files: the "Less related (N)" fold of the search results screen (#19). Text on the
+     72 dp keyline, as the section titles; chevron at the end. -->
 <LinearLayout
     xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
@@ -19,7 +20,7 @@
         android:background="?selectableItemBackground"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="@dimen/screen_edge_margin"
+        android:paddingStart="@dimen/content_start_margin"
         android:paddingEnd="@dimen/screen_edge_margin">
 
         <TextView
