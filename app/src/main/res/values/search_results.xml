@@ -5,7 +5,10 @@
 
     <dimen name="search_row_padding_vertical">12dp</dimen>
     <dimen name="search_title_padding_top">8dp</dimen>
-    <dimen name="search_chip_row_padding_vertical">8dp</dimen>
+    <!-- -4: "See all" keeps its 48 dp touch target, but the title row stays 48 dp (8 + 40). -->
+    <dimen name="search_see_all_margin_vertical">-4dp</dimen>
+    <!-- 0: the chip's own 48 dp touch target already adds 8 dp above and below its 32 dp. -->
+    <dimen name="search_chip_row_padding_vertical">0dp</dimen>
     <dimen name="search_chip_spacing">8dp</dimen>
     <dimen name="search_progress_padding_vertical">4dp</dimen>
     <dimen name="search_progress_thickness">4dp</dimen>
