@@ -514,7 +514,10 @@ internal class SearchScreen(
             photoColumns = page.photoColumns
             layoutManager.spanSizeLookup.invalidateSpanIndexCache()
         }
-        head.submitList(page.head)
+        // A row added on top (the progress line) lands above the screen: RecyclerView keeps the
+        // chips as its anchor. At the top of the list, stay at the top.
+        val atTop = !recyclerView.canScrollVertically(-1)
+        head.submitList(page.head) { if (atTop) recyclerView.scrollToPosition(0) }
         photosAdapter.replaceListAndIsSearching(page.photos.map { it.file }, true)
         mid.submitList(page.mid)
         namesAdapter.replaceListAndIsSearching(page.names.map { it.file }, true)
