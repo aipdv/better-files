@@ -24,6 +24,9 @@ abstract class NavigationItem {
 
     open fun getSubtitle(context: Context): String? = null
 
+    // Better Files: the padlock "Local" pill (Indexing row only).
+    open val showsLocalPill: Boolean = false
+
     open fun isChecked(listener: Listener): Boolean = false
 
     abstract fun onClick(listener: Listener)

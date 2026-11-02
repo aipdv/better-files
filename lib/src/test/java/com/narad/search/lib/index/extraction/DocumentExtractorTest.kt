@@ -1,15 +1,21 @@
 package com.narad.search.lib.index.extraction
 
+import com.tom_roush.pdfbox.cos.COSName
 import com.tom_roush.pdfbox.pdmodel.PDDocument
 import com.tom_roush.pdfbox.pdmodel.PDPage
 import com.tom_roush.pdfbox.pdmodel.PDPageContentStream
+import com.tom_roush.pdfbox.pdmodel.PDResources
+import com.tom_roush.pdfbox.pdmodel.common.PDRectangle
 import com.tom_roush.pdfbox.pdmodel.encryption.AccessPermission
 import com.tom_roush.pdfbox.pdmodel.encryption.StandardProtectionPolicy
+import com.tom_roush.pdfbox.pdmodel.common.PDStream
 import com.tom_roush.pdfbox.pdmodel.font.PDType1Font
+import com.tom_roush.pdfbox.pdmodel.graphics.form.PDFormXObject
 import org.apache.poi.xwpf.usermodel.XWPFDocument
 import org.junit.Assert.*
 import org.junit.Test
 import java.io.ByteArrayOutputStream
+import java.io.InputStream
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
 
@@ -540,6 +546,57 @@ class DocumentExtractorTest {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
+    // Security: PDF decode amplification (scratch file cap)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `PDF whose content stream decodes far past its file size is refused`() {
+        // About 100 KB on disk. The first content stream inflates to 96 MB of spaces before
+        // the text. Without a scratch cap pdfbox writes all of it to the cache dir.
+        val pdf = buildPdfWithPrefixStream(96L * 1024 * 1024, "Decode bomb marker text.")
+
+        val result = extractor.extractStream(pdf.inputStream(), "application/pdf")
+
+        assertNull("A PDF that decodes past the scratch cap must be refused, got: ${result?.take(80)}", result)
+    }
+
+    @Test
+    fun `PDF with a large but normal content stream still extracts`() {
+        val pdf = buildPdfWithPrefixStream(8L * 1024 * 1024, "Large stream marker text.")
+
+        val result = extractor.extractStream(pdf.inputStream(), "application/pdf")
+
+        assertNotNull("A PDF under the scratch cap must still extract", result)
+        assertTrue(result!!.contains("Large stream marker"))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
+    // Security: PDF operator budget (form XObject fan-out)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    @Test
+    fun `PDF whose forms fan out past the operator budget stops before the text`() {
+        // About 1 KB of forms: the page draws a form that draws a leaf form 200 times, and the
+        // leaf holds 20,000 no-op operators, so 4 million operators run before the text.
+        // pdfbox limits form depth, not fan-out. A deeper chain of the same shape never ends.
+        val pdf = buildFormFanOutPdf(outerCalls = 200, leafOps = 20_000, text = "Fan-out marker text.")
+
+        val result = extractor.extractStream(pdf.inputStream(), "application/pdf")
+
+        assertNull("Extraction must stop at the operator budget, got: ${result?.take(80)}", result)
+    }
+
+    @Test
+    fun `PDF with a modest form still extracts its text`() {
+        val pdf = buildFormFanOutPdf(outerCalls = 10, leafOps = 1_000, text = "Small form marker text.")
+
+        val result = extractor.extractStream(pdf.inputStream(), "application/pdf")
+
+        assertNotNull("A PDF under the operator budget must still extract", result)
+        assertTrue(result!!.contains("Small form marker"))
+    }
+
+    // ─────────────────────────────────────────────────────────────────────────
     // Helpers: build in-memory documents with PdfBox / POI
     // ─────────────────────────────────────────────────────────────────────────
 
@@ -556,6 +613,56 @@ class DocumentExtractorTest {
             doc.save(baos)
         }
         return baos.toByteArray()
+    }
+
+    /** One page: draw a form that draws a leaf form [outerCalls] times, then write [text]. */
+    private fun buildFormFanOutPdf(outerCalls: Int, leafOps: Int, text: String): ByteArray {
+        val baos = ByteArrayOutputStream()
+        PDDocument().use { doc ->
+            fun form(content: String, resources: PDResources) =
+                PDFormXObject(PDStream(doc, content.byteInputStream(), COSName.FLATE_DECODE)).apply {
+                    bBox = PDRectangle(0f, 0f, 1f, 1f)
+                    this.resources = resources
+                }
+            val leaf = form("0 0 m\n".repeat(leafOps), PDResources())
+            val outerResources = PDResources().apply { put(COSName.getPDFName("Leaf"), leaf) }
+            val outer = form("/Leaf Do\n".repeat(outerCalls), outerResources)
+            val page = PDPage()
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { cs ->
+                cs.drawForm(outer)
+                writeLines(cs, listOf(text))
+            }
+            doc.save(baos)
+        }
+        return baos.toByteArray()
+    }
+
+    private fun buildPdfWithPrefixStream(prefixSpaces: Long, text: String): ByteArray {
+        val baos = ByteArrayOutputStream()
+        PDDocument().use { doc ->
+            val page = PDPage()
+            doc.addPage(page)
+            PDPageContentStream(doc, page).use { cs -> writeLines(cs, listOf(text)) }
+            val textStream = page.contentStreams.next()
+            val prefix = PDStream(doc, spaces(prefixSpaces), COSName.FLATE_DECODE)
+            page.setContents(listOf(prefix, textStream))
+            doc.save(baos)
+        }
+        return baos.toByteArray()
+    }
+
+    /** [count] ASCII spaces, generated on the fly so the test never holds them in memory. */
+    private fun spaces(count: Long): InputStream = object : InputStream() {
+        private var left = count
+        override fun read(): Int = if (left-- > 0) 0x20 else -1
+        override fun read(b: ByteArray, off: Int, len: Int): Int {
+            if (left <= 0) return -1
+            val n = minOf(len.toLong(), left).toInt()
+            b.fill(0x20, off, off + n)
+            left -= n
+            return n
+        }
     }
 
     private fun writeLines(cs: PDPageContentStream, lines: List<String>) {

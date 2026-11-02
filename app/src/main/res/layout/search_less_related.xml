@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Better Files: the "Less related (N)" fold of the search results screen (#19). Text on the
+     72 dp keyline, as the section titles; chevron at the end. -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:layout_marginTop="@dimen/search_less_related_margin_top"
+    android:orientation="vertical">
+
+    <com.google.android.material.divider.MaterialDivider
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content" />
+
+    <LinearLayout
+        android:id="@+id/lessLayout"
+        android:layout_width="match_parent"
+        android:layout_height="@dimen/search_less_related_height"
+        android:background="?selectableItemBackground"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="@dimen/content_start_margin"
+        android:paddingEnd="@dimen/screen_edge_margin">
+
+        <TextView
+            android:id="@+id/lessText"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:textAppearance="?textAppearanceListItem"
+            android:textColor="?android:textColorSecondary" />
+
+        <ImageView
+            android:id="@+id/chevronImage"
+            android:layout_width="@dimen/icon_size"
+            android:layout_height="@dimen/icon_size"
+            android:importantForAccessibility="no"
+            android:src="@drawable/expand_more_icon_24dp" />
+    </LinearLayout>
+</LinearLayout>

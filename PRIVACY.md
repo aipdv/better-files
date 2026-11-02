@@ -1,6 +1,6 @@
 # Privacy Policy
 
-Last updated: 2026-10-25.
+Last updated: 2026-11-01.
 
 Better Files is a file manager with on-device search. It has no account and no servers of its own.
 
@@ -33,7 +33,7 @@ When you opt in, Better Files creates a random anonymous ID and stores it on you
 | File renamed, bookmark added | None |
 | Files shared | Number of files |
 | File or folder created | File or folder |
-| Meaning search used | None |
+| Meaning search used | Number of results in each section (documents, photos, names, less related) |
 | Indexing started, re-index started | None |
 | Search model download started, completed, or failed | None |
 | Overnight indexing turned on or off | On or off |
@@ -44,7 +44,7 @@ Every event also carries: the anonymous ID, the time, the app version and build,
 ### What we never collect
 
 - File or folder names, paths, or file content
-- Search queries, search results, or snippets
+- Search words, the files a search finds, their names, or snippets. Meaning search sends only the number of results in each section.
 - Your search index
 - Server addresses, user names, or passwords for network storage
 - Your IP address (PostHog discards it) or your location
@@ -82,7 +82,9 @@ Builds made without an analytics key (for example, builds from source) have no a
 
 ## Data on your phone
 
-- The search index and the downloaded models stay on your phone. They are excluded from Android backup.
+The search index lets you search your files by meaning. It holds file paths, pieces of text from your documents, and number vectors that describe that text (and your photos, on phones with photo search). It stays in the app's private storage on your phone and is excluded from Android backup. Other apps cannot read it. Someone with root access to your phone, or an attack that uses an Android security hole, can read it. The search index is not encrypted.
+
+- The downloaded models stay on your phone. They are excluded from Android backup.
 - Indexing keeps a short log of its own runs on your phone: the stage, counts, the battery level, whether the phone was charging or idle, free memory, and for a file that failed, its name and the error type. The log keeps at most 7 days and 500 entries. It is excluded from Android backup and is never sent.
 - App settings can be included in Android backup. These settings include saved network storage logins and your analytics choice.
 

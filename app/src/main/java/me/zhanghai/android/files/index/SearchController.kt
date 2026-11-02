@@ -54,7 +54,9 @@ data class DocRow(
     val fileKind: FileKind,
     val snippet: String,
     /** Strong match for the query (see [strongDocs]). Weak hits go under "Less related". */
-    val strong: Boolean = true
+    val strong: Boolean = true,
+    /** Query words found in the file by the keyword store. Empty = found by meaning only. */
+    val matchedTerms: Set<String> = emptySet()
 )
 
 /**
@@ -74,7 +76,10 @@ data class PhotoRow(
  */
 data class SearchOutput(
     val docs: List<DocRow>,
-    val photos: List<PhotoRow>
+    val photos: List<PhotoRow>,
+    /** The engine cut its raw document list at topK, so more may exist ("Documents 20+"). */
+    val docsCut: Boolean = false,
+    val photosCut: Boolean = false
 ) {
     companion object {
         val EMPTY = SearchOutput(emptyList(), emptyList())
@@ -411,7 +416,8 @@ class RealSearchController(
                 dateModified = meta.dateModified,
                 fileKind     = fileKindFromMime(meta.mimeType),
                 snippet      = snippet,
-                strong       = docBucket[i] == Bucket.STRONG
+                strong       = docBucket[i] == Bucket.STRONG,
+                matchedTerms = fr.matchedTerms
             )
         }
 
@@ -419,7 +425,7 @@ class RealSearchController(
         val photoRows = rawPhotos.withIndex().filter { photoBucket[it.index] != Bucket.DROP }
             .map { (i, p) -> PhotoRow(p.filePath, p.score, photoBucket[i] == Bucket.STRONG) }
 
-        return SearchOutput(enrichedDocs, photoRows)
+        return SearchOutput(enrichedDocs, photoRows, rawDocs.size >= topK, rawPhotos.size >= topK)
     }
 
     // ---- Home-screen queries (lightweight DB reads, no ONNX needed) --------

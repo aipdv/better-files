@@ -65,6 +65,9 @@ class FileListViewModel : ViewModel() {
         FileListSwitchMapLiveData(currentPathLiveData, _searchStateLiveData)
     val fileListLiveData: LiveData<Stateful<List<FileItem>>>
         get() = _fileListLiveData
+    val searchMeaning: MeaningResults?
+        get() = _fileListLiveData.meaning
+
     val fileListStateful: Stateful<List<FileItem>>
         get() = _fileListLiveData.valueCompat
 
@@ -246,6 +249,10 @@ class FileListViewModel : ViewModel() {
         private val searchStateLiveData: LiveData<SearchState>
     ) : MediatorLiveData<Stateful<List<FileItem>>>(), Closeable {
         private var liveData: CloseableLiveData<Stateful<List<FileItem>>>? = null
+
+        // Index0: meaning results of the current search (#19), null when not searching.
+        val meaning: MeaningResults?
+            get() = (liveData as? SearchFileListLiveData)?.meaning
 
         init {
             addSource(pathLiveData) { updateSource() }

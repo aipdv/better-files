@@ -363,7 +363,7 @@ private val menuItems: List<NavigationItem>
         ),
         IntentMenuItem(
             R.drawable.indexing_icon_white_24dp, R.string.navigation_indexing,
-            IndexingActivity::class.createIntent()
+            IndexingActivity::class.createIntent(), showsLocalPill = true
         ),
         IntentMenuItem(
             R.drawable.settings_icon_white_24dp, R.string.navigation_settings,
@@ -385,7 +385,8 @@ private abstract class MenuItem(
 private class IntentMenuItem(
     @DrawableRes iconRes: Int,
     @StringRes titleRes: Int,
-    private val intent: Intent
+    private val intent: Intent,
+    override val showsLocalPill: Boolean = false
 ) : MenuItem(iconRes, titleRes) {
     override val id: Long
         get() = intent.component.hashCode().toLong()

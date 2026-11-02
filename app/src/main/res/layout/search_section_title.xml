@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Better Files: section title at the 72 dp keyline, "See all" at the end (#19). -->
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:minHeight="@dimen/touch_target_size"
+    android:gravity="center_vertical"
+    android:orientation="horizontal"
+    android:paddingStart="@dimen/content_start_margin"
+    android:paddingEnd="@dimen/screen_edge_margin_minus_12dp"
+    android:paddingTop="@dimen/search_title_padding_top">
+
+    <TextView
+        android:id="@+id/titleText"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:accessibilityHeading="true"
+        android:textAppearance="?textAppearanceSubtitle2"
+        android:textColor="?colorPrimary" />
+
+    <TextView
+        android:id="@+id/countText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_weight="1"
+        android:paddingStart="@dimen/search_chip_spacing"
+        android:textAppearance="?textAppearanceBody2"
+        android:textColor="?android:textColorSecondary" />
+
+    <Button
+        android:id="@+id/seeAllButton"
+        style="?borderlessButtonStyle"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="@dimen/search_see_all_margin_vertical"
+        android:layout_marginBottom="@dimen/search_see_all_margin_vertical"
+        android:text="@string/search_see_all" />
+</LinearLayout>

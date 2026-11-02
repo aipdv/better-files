@@ -44,7 +44,14 @@ import androidx.core.view.updatePaddingRelative
 import androidx.drawerlayout.widget.DrawerLayout
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.commit
+import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleOwner
+import androidx.lifecycle.lifecycleScope
+import androidx.lifecycle.repeatOnLifecycle
+import androidx.work.WorkManager
+import kotlinx.coroutines.launch
+import me.zhanghai.android.files.index.indexWorkFlow
+import me.zhanghai.android.files.index.resolveIndexingStatus
 import androidx.recyclerview.widget.GridLayoutManager
 import androidx.recyclerview.widget.RecyclerView
 import androidx.swiperefreshlayout.widget.SwipeRefreshLayout
@@ -184,6 +191,9 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private lateinit var adapter: FileListAdapter
 
+    // Index0: search results screen (#19) around the upstream adapter.
+    private lateinit var searchScreen: SearchScreen
+
     private val debouncedSearchRunnable = DebouncedRunnable(Handler(Looper.getMainLooper()), 1000) {
         if (!isResumed || !viewModel.isSearchViewExpanded) {
             return@DebouncedRunnable
@@ -250,6 +260,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         binding.recyclerView.layoutManager = layoutManager
         adapter = FileListAdapter(this)
         binding.recyclerView.adapter = adapter
+        searchScreen = SearchScreen(binding.recyclerView, layoutManager, adapter, this)
         val fastScroller = ThemedFastScroller.create(binding.recyclerView)
         binding.recyclerView.setOnApplyWindowInsetsListener(
             ScrollingViewOnApplyWindowInsetsListener(binding.recyclerView, fastScroller)
@@ -371,6 +382,14 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         viewModel.pasteStateLiveData.observe(viewLifecycleOwner) { onPasteStateChanged(it) }
         Settings.FILE_NAME_ELLIPSIZE.observe(viewLifecycleOwner) { onFileNameEllipsizeChanged(it) }
         viewModel.fileListLiveData.observe(viewLifecycleOwner) { onFileListChanged(it) }
+        viewLifecycleOwner.lifecycleScope.launch {
+            viewLifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                indexWorkFlow(WorkManager.getInstance(requireContext())).collect {
+                    searchScreen.progress = readingProgress(resolveIndexingStatus(it))
+                    updateSearchEmptyText()
+                }
+            }
+        }
         Settings.FILE_LIST_SHOW_HIDDEN_FILES.observe(viewLifecycleOwner) {
             onShowHiddenFilesChanged(it)
         }
@@ -594,6 +613,8 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private fun onSearchViewExpandedChanged(expanded: Boolean) {
         updateViewSortMenuItems()
+        // Index0: the FAB covers the last search row (#19).
+        binding.speedDialView.isVisible = !expanded
     }
 
     private fun onFileListChanged(stateful: Stateful<List<FileItem>>) {
@@ -604,7 +625,10 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
             stateful is Loading && !isSearching -> binding.toolbar.setSubtitle(R.string.loading)
             else -> binding.toolbar.subtitle = getSubtitle(files!!)
         }
-        val hasFiles = !files.isNullOrEmpty()
+        // Index0: only weak meaning hits (Less related) also count as results (#19).
+        val hasFiles = !files.isNullOrEmpty() || currentSearchMeaning()?.let {
+            it.weakDocs.isNotEmpty() || it.weakPhotos.isNotEmpty()
+        } == true
         binding.swipeRefreshLayout.isRefreshing = stateful is Loading && (hasFiles || isSearching)
         binding.progress.fadeToVisibilityUnsafe(stateful is Loading && !(hasFiles || isSearching))
         binding.errorText.fadeToVisibilityUnsafe(stateful is Failure && !hasFiles)
@@ -618,6 +642,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 binding.errorText.text = error
             }
         }
+        updateSearchEmptyText()
         binding.emptyView.fadeToVisibilityUnsafe(stateful is Success && !hasFiles)
         if (files != null) {
             updateAdapterFileList()
@@ -688,7 +713,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
                 }
                 (widthDp / 180).coerceAtLeast(2)
             }
-        }
+        } * if (searchScreen.isShown) SearchScreen.SPAN_UNIT else 1
     }
 
     private fun onSortOptionsChanged(sortOptions: FileSortOptions) {
@@ -756,10 +781,41 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private fun updateAdapterFileList() {
         var files = viewModel.fileListStateful.value ?: return
-        if (!Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat) {
+        val showHiddenFiles = Settings.FILE_LIST_SHOW_HIDDEN_FILES.valueCompat
+        if (!showHiddenFiles) {
             files = files.filterNot { it.isHidden }
         }
-        adapter.replaceListAndIsSearching(files, viewModel.searchState.isSearching)
+        // Index0: sections when meaning results match this search, else the upstream list (#19).
+        if (searchScreen.update(currentSearchMeaning(), files) { showHiddenFiles || !it.isHidden }) {
+            updateSpanCount()
+        }
+        if (!searchScreen.isShown) {
+            adapter.replaceListAndIsSearching(files, viewModel.searchState.isSearching)
+        }
+    }
+
+    // Index0: meaning results of the current search, ignored when their key does not match.
+    private fun currentSearchMeaning(): MeaningResults? {
+        val searchState = viewModel.searchState
+        return viewModel.searchMeaning?.takeIf {
+            searchState.isSearching && it.path == viewModel.currentPath &&
+                it.query == searchState.query
+        }
+    }
+
+    // Index0: No files match "<query>", plus the indexing line while indexing runs (#19).
+    private fun updateSearchEmptyText() {
+        val searchState = viewModel.searchState
+        val emptyText = binding.emptyView as TextView
+        if (!searchState.isSearching) {
+            emptyText.setText(R.string.file_list_empty)
+            return
+        }
+        val progress = searchScreen.progress
+        emptyText.text = listOfNotNull(
+            getString(R.string.search_empty_format, searchState.query),
+            progress?.let { getString(R.string.search_empty_indexing_format, it.first, it.second) }
+        ).joinToString("\n")
     }
 
     private fun updateShowHiddenFilesMenuItem() {
@@ -821,6 +877,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
         updateOverlayToolbar()
         updateBottomToolbar()
         adapter.pickOptions = pickOptions
+        searchScreen.setPickOptions(pickOptions)
     }
 
     private fun updateSelectAllMenuItem() {
@@ -868,6 +925,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
     private fun onSelectedFilesChanged(files: FileItemSet) {
         updateOverlayToolbar()
         adapter.replaceSelectedFiles(files)
+        searchScreen.setSelectedFiles(files)
     }
 
     private fun updateOverlayToolbar() {
@@ -1213,6 +1271,7 @@ class FileListFragment : Fragment(), BreadcrumbLayout.Listener, FileListAdapter.
 
     private fun onFileNameEllipsizeChanged(fileNameEllipsize: TextUtils.TruncateAt) {
         adapter.nameEllipsize = fileNameEllipsize
+        searchScreen.photosAdapter.nameEllipsize = fileNameEllipsize
     }
 
     override fun clearSelectedFiles() {

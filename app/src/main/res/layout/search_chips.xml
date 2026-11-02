@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+
+<!-- Better Files: filter chips of the search results screen (#19). Scrolls with the list. -->
+<HorizontalScrollView
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:scrollbars="none">
+
+    <com.google.android.material.chip.ChipGroup
+        android:id="@+id/chipGroup"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:paddingStart="@dimen/screen_edge_margin"
+        android:paddingEnd="@dimen/screen_edge_margin"
+        android:paddingTop="@dimen/search_chip_row_padding_vertical"
+        android:paddingBottom="@dimen/search_chip_row_padding_vertical"
+        app:chipSpacingHorizontal="@dimen/search_chip_spacing"
+        app:selectionRequired="true"
+        app:singleLine="true"
+        app:singleSelection="true" />
+</HorizontalScrollView>

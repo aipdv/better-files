@@ -7,10 +7,8 @@ import android.util.Log
 import com.narad.search.lib.index.enumeration.ExcludedFolders
 import com.narad.search.lib.index.provision.ProvisionState
 import java8.nio.file.Path
-import java8.nio.file.Paths
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
-import me.zhanghai.android.files.app.Analytics
 import me.zhanghai.android.files.app.application
 import me.zhanghai.android.files.provider.linux.isLinuxPath
 
@@ -20,30 +18,36 @@ object SemanticSearch {
     private const val TOP_K = 20
 
     /**
-     * Strong semantic hits under [folder], best first. Empty when [folder] is not on local
-     * storage, the model is not ready, or anything fails: name search must never break.
+     * Strong and weak hits under [folder], best first, with snippets and matched words. Paths are
+     * resolved file paths. Null when meaning search did not run: [folder] is not on local
+     * storage, the model is not ready, or anything fails. Name search must never break.
      */
-    fun search(folder: Path, query: String): List<Path> {
+    fun search(folder: Path, query: String): SearchOutput? {
         val scope = if (folder.isLinuxPath) folder.toString() else null
-        if (semanticScope(scope) == null || query.isBlank()) return emptyList()
+        if (semanticScope(scope) == null || query.isBlank()) return null
         // No model yet: do not touch the engine (it would create an empty index file).
-        if (IndexEngine.provisioner.stateFlow.value != ProvisionState.Ready) return emptyList()
-        Analytics.capture("meaning_search_used")
+        if (IndexEngine.provisioner.stateFlow.value != ProvisionState.Ready) return null
         return try {
             val output = runBlocking { IndexEngine.searchController.search(query, TOP_K) }
-            val uris = output.docs.filter { it.strong }.map { it.filePath } +
-                output.photos.filter { it.strong }.map { it.filePath }
+            val uris = output.docs.map { it.filePath } + output.photos.map { it.filePath }
             val paths = resolvePaths(uris)
-            scopeHits(uris.map { paths[it] }, scope, ExcludedFolders.userFolders(application))
-                .map { Paths.get(it) }
+            val kept = scopeHits(uris.map { paths[it] }, scope, ExcludedFolders.userFolders(application))
+                .toSet()
+            fun scoped(uri: String) = paths[uri]?.takeIf { it in kept }
+            output.copy(
+                docs = output.docs.mapNotNull { row -> scoped(row.filePath)?.let { row.copy(filePath = it) } }
+                    .distinctBy { it.filePath },
+                photos = output.photos.mapNotNull { row -> scoped(row.filePath)?.let { row.copy(filePath = it) } }
+                    .distinctBy { it.filePath }
+            )
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             Log.w(TAG, "Semantic search failed, name search only", e)
-            emptyList()
+            null
         } catch (e: LinkageError) {
             Log.w(TAG, "Semantic search failed, name search only", e)
-            emptyList()
+            null
         }
     }
 

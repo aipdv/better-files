@@ -32,6 +32,18 @@ class SnippetTest {
     }
 
     @Test
+    fun snippet_matchAfterBlankLineStaysInOneLine() {
+        val content = "Coorg wildlife notes\n\nWe saw a herd of elephant near the river.\tLater it rained."
+        val snippet = buildSnippet(content, listOf("elephant"), maxLen = 160)
+        assertEquals("Coorg wildlife notes We saw a herd of elephant near the river. Later it rained.", snippet)
+        val long = "Intro line.\n" + "\n".repeat(300) + "Notes:\n  a herd of elephant here.\n" + "x ".repeat(200)
+        val cut = buildSnippet(long, listOf("elephant"), maxLen = 60)
+        assertTrue("No line breaks; got: $cut", cut.none { it == '\n' || it == '\t' })
+        assertTrue("Match inside the snippet; got: $cut", cut.contains("elephant"))
+        assertTrue(cut.length <= 60)
+    }
+
+    @Test
     fun snippet_neverExceedsMaxLen() {
         val content = "x".repeat(1000)
         val snippet = buildSnippet(content, listOf("x"), maxLen = 160)

@@ -818,6 +818,8 @@
     <!-- Index0: indexing -->
     <string name="indexing_title">Indexing</string>
     <string name="navigation_indexing" translatable="false">@string/indexing_title</string>
+    <string name="navigation_local_pill">Local</string>
+    <string name="navigation_local_pill_description">Your search index stays on this phone</string>
     <string name="indexing_status_category">Status</string>
     <string name="indexing_status_idle">Not indexing</string>
     <string name="indexing_status_getting_ready">Getting ready</string>
@@ -872,4 +874,16 @@
     <string name="indexing_excluded_add">Add folder</string>
     <string name="indexing_excluded_remove_title">Index this folder again?</string>
     <string name="indexing_excluded_remove">Index again</string>
+
+    <!-- Better Files: search results screen (#19) -->
+    <string name="search_chip_all">All</string>
+    <string name="search_chip_documents">Documents</string>
+    <string name="search_chip_photos">Photos</string>
+    <string name="search_chip_names">Names</string>
+    <string name="search_chip_count_format">%1$s %2$s</string>
+    <string name="search_see_all">See all</string>
+    <string name="search_less_related_format">Less related (%1$d)</string>
+    <string name="search_reading_progress_format">Reading your files · %1$d of %2$d</string>
+    <string name="search_empty_format">No files match \"%1$s\"</string>
+    <string name="search_empty_indexing_format">Still reading your files: %1$d of %2$d done. Try again in a few minutes.</string>
 </resources>

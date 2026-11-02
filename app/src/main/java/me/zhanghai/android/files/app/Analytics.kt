@@ -12,15 +12,17 @@ import androidx.fragment.app.Fragment
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import com.posthog.PersonProfiles
 import com.posthog.PostHog
+import com.posthog.PostHogInterface
 import com.posthog.android.PostHogAndroid
 import com.posthog.android.PostHogAndroidConfig
+import java.io.File
 import me.zhanghai.android.files.BuildConfig
 import me.zhanghai.android.files.R
 import me.zhanghai.android.files.util.setSpanClickable
 import me.zhanghai.android.files.util.show
 
-// ponytail: one place for the policy link; pr/5 may rename the repo.
-const val PRIVACY_POLICY_URL = "https://github.com/aipdv/Index0/blob/master/PRIVACY.md"
+// ponytail: one place for the policy link (the bf.aipdv.com copy of PRIVACY.md).
+const val PRIVACY_POLICY_URL = "https://bf.aipdv.com/privacy"
 
 /** Event name to the only properties it may carry. Anything else is dropped before the queue. */
 internal val ANALYTICS_EVENTS: Map<String, Set<String>> = mapOf(
@@ -34,7 +36,7 @@ internal val ANALYTICS_EVENTS: Map<String, Set<String>> = mapOf(
     "files_shared" to setOf("file_count"),
     "bookmark_added" to emptySet(),
     "file_created" to setOf("item_type"),
-    "meaning_search_used" to emptySet(),
+    "meaning_search_used" to setOf("doc_count", "photo_count", "name_count", "less_related_count"),
     "indexing_started" to emptySet(),
     "reindex_started" to emptySet(),
     "model_download_started" to emptySet(),
@@ -66,6 +68,16 @@ internal fun shouldAskAnalytics(available: Boolean, asked: Boolean, launchCount:
 /** Pure: the SDK starts only in a build with a key and after the user opted in. */
 internal fun shouldStartAnalytics(available: Boolean, enabled: Boolean): Boolean =
     available && enabled
+
+/**
+ * Opt-out for a started SDK: stop it, so nothing more is sent. Not reset(): in posthog 6.47 it
+ * posts a feature-flag request after opt-out that carries the first anonymous ID as the device ID
+ * next to the new ID. close() sends the events already queued (PRIVACY.md says so), then stops.
+ */
+internal fun stopAnalytics(posthog: PostHogInterface) {
+    posthog.optOut()
+    posthog.close()
+}
 
 /** Opt-in PostHog EU analytics. Before opt-in nothing is set up, stored or sent. */
 object Analytics {
@@ -111,9 +123,13 @@ object Analytics {
             // A past opt-out is persisted by the SDK.
             PostHog.optIn()
         } else if (isStarted) {
-            PostHog.optOut()
-            // A new anonymous ID on the next opt-in.
-            PostHog.reset()
+            stopAnalytics(PostHog)
+            isStarted = false
+            // New IDs on the next opt-in: drop the SDK's stored IDs and its disk queues.
+            application.deleteSharedPreferences("posthog-android-" + BuildConfig.POSTHOG_API_KEY)
+            for (queue in listOf("posthog-disk-queue", "posthog-disk-replay-queue", "posthog-disk-logs-queue")) {
+                File(application.cacheDir, queue).deleteRecursively()
+            }
         }
     }
 
