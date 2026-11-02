@@ -1,12 +1,20 @@
 package me.zhanghai.android.files.filelist
 
+import android.graphics.Outline
+import android.graphics.Rect
 import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
+import android.graphics.drawable.LayerDrawable
+import android.graphics.drawable.StateListDrawable
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.StyleSpan
 import android.view.ContextThemeWrapper
+import android.view.View
 import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import androidx.appcompat.widget.PopupMenu
+import androidx.core.graphics.ColorUtils
 import androidx.core.view.isVisible
 import androidx.recyclerview.widget.ConcatAdapter
 import androidx.recyclerview.widget.DiffUtil
@@ -18,16 +26,22 @@ import coil.dispose
 import coil.load
 import com.google.android.material.chip.Chip
 import me.zhanghai.android.files.R
+import me.zhanghai.android.files.compat.foregroundCompat
 import me.zhanghai.android.files.databinding.FileItemSearchBinding
 import me.zhanghai.android.files.databinding.SearchChipsBinding
 import me.zhanghai.android.files.databinding.SearchLessRelatedBinding
 import me.zhanghai.android.files.databinding.SearchProgressBinding
 import me.zhanghai.android.files.databinding.SearchSectionTitleBinding
 import me.zhanghai.android.files.file.FileItem
+import me.zhanghai.android.files.file.fileSize
 import me.zhanghai.android.files.file.formatShort
 import me.zhanghai.android.files.file.iconRes
 import me.zhanghai.android.files.index.highlightRanges
+import me.zhanghai.android.files.ui.AspectRatioFrameLayout
 import me.zhanghai.android.files.ui.CheckableItemBackground
+import me.zhanghai.android.files.util.dpToDimensionPixelSize
+import me.zhanghai.android.files.util.getColorByAttr
+import me.zhanghai.android.files.util.getDimensionPixelSize
 import me.zhanghai.android.files.util.isMaterial3Theme
 import me.zhanghai.android.files.util.layoutInflater
 
@@ -94,7 +108,7 @@ internal class SearchRowsAdapter(
                 val enabled = isSelectable(hit.file)
                 binding.itemLayout.isEnabled = enabled
                 binding.menuButton.isEnabled = enabled
-                if (payloads.isEmpty()) bindFile(binding, hit, weak = row is SearchRow.Weak)
+                if (payloads.isEmpty()) bindFile(binding, hit)
             }
         }
     }
@@ -157,7 +171,7 @@ internal class SearchRowsAdapter(
         binding.lessLayout.setOnClickListener { onLessRelatedToggled() }
     }
 
-    private fun bindFile(binding: FileItemSearchBinding, hit: SearchHit, weak: Boolean) {
+    private fun bindFile(binding: FileItemSearchBinding, hit: SearchHit) {
         val file = hit.file
         val context = binding.root.context
         binding.iconImage.isVisible = true
@@ -173,21 +187,11 @@ internal class SearchRowsAdapter(
             }
         }
         binding.nameText.text = file.name
-        binding.snippetText.text = if (weak) null else boldTerms(hit.snippet, hit.matchedTerms)
-        // Bold words explain a document row. Rows without them say why in one grey line.
-        binding.reasonText.text = if (weak || hit.matchedTerms.isEmpty()) {
-            val reason = if (hit.matchedTerms.isEmpty()) {
-                context.getString(R.string.search_reason_similar_meaning)
-            } else {
-                context.getString(R.string.search_reason_words_format, hit.matchedTerms.joinToString(" "))
-            }
-            val folder = file.path.parent?.fileName?.toString()
-            val date = file.attributes.lastModifiedTime().toInstant().formatShort(context)
-            listOfNotNull(reason, folder, date)
-                .joinToString(context.getString(R.string.search_reason_separator))
-        } else {
-            null
-        }
+        // The snippet only when it shows a query word in bold. Else the upstream date and size line.
+        binding.snippetText.text = boldTerms(hit.snippet, hit.matchedTerms) ?: listOf(
+            file.attributes.lastModifiedTime().toInstant().formatShort(context),
+            file.attributes.fileSize.formatHumanReadable(context),
+        ).joinToString(context.getString(R.string.file_item_description_separator))
         binding.itemLayout.setOnClickListener {
             if (!isSelectable(file)) return@setOnClickListener
             if (selectedFiles.isEmpty()) listener.openFile(file) else toggleSelection(file)
@@ -266,9 +270,12 @@ internal class SearchRowsAdapter(
                 SearchChip.NAMES -> R.string.search_chip_names
             }
 
-        private fun boldTerms(snippet: String, terms: Set<String>): CharSequence {
+        /** [snippet] with the [terms] in bold, or null when it shows none of them. */
+        private fun boldTerms(snippet: String, terms: Set<String>): CharSequence? {
+            val ranges = highlightRanges(snippet, terms.toList())
+            if (ranges.isEmpty()) return null
             val text = SpannableString(snippet)
-            for (range in highlightRanges(snippet, terms.toList())) {
+            for (range in ranges) {
                 text.setSpan(
                     StyleSpan(Typeface.BOLD), range.first, range.last + 1,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
@@ -314,7 +321,7 @@ internal class SearchScreen(
     listener: FileListAdapter.Listener,
 ) {
     private val head = SearchRowsAdapter(listener, ::selectChip, ::toggleLessRelated)
-    // The photos grid reuses the upstream grid item.
+    // The photos grid reuses the upstream grid item, as a thumbnail only (see init).
     val photosAdapter = FileListAdapter(listener).apply { viewType = FileViewType.GRID }
     private val mid = SearchRowsAdapter(listener, ::selectChip, ::toggleLessRelated)
     private val tail = SearchRowsAdapter(listener, ::selectChip, ::toggleLessRelated)
@@ -340,6 +347,65 @@ internal class SearchScreen(
         get() = recyclerView.adapter === concatAdapter
 
     init {
+        // ponytail: photo tiles reuse the upstream grid item as a thumbnail only: its bottom bar
+        // (icon, name, menu) has no room at 3 or 4 columns. ConcatAdapter keeps these holders apart
+        // from the names list, so the normal folder grid never gets this. clipToOutline = done.
+        val context = recyclerView.context
+        val corner = context.getDimensionPixelSize(R.dimen.search_photo_corner).toFloat()
+        val primary = context.getColorByAttr(androidx.appcompat.R.attr.colorPrimary)
+        recyclerView.addOnChildAttachStateChangeListener(
+            object : RecyclerView.OnChildAttachStateChangeListener {
+                override fun onChildViewAttachedToWindow(view: View) {
+                    val holder = recyclerView.getChildViewHolder(view)
+                    if (holder.bindingAdapter !== photosAdapter || view.clipToOutline) return
+                    holder as FileListAdapter.ViewHolder
+                    (holder.iconLayout.parent as View).isVisible = false
+                    (holder.thumbnailImage.parent as AspectRatioFrameLayout).apply {
+                        (layoutParams as ViewGroup.MarginLayoutParams).setMargins(0, 0, 0, 0)
+                        ratio = 1f
+                    }
+                    holder.itemLayout.apply {
+                        outlineProvider = object : ViewOutlineProvider() {
+                            override fun getOutline(view: View, outline: Outline) =
+                                outline.setRoundRect(0, 0, view.width, view.height, corner)
+                        }
+                        clipToOutline = true
+                        // The check badge sat in the hidden bar: a selected tile gets a tint.
+                        val checked = StateListDrawable().apply {
+                            addState(
+                                intArrayOf(android.R.attr.state_checked),
+                                GradientDrawable().apply {
+                                    setColor(ColorUtils.setAlphaComponent(primary, 0x66))
+                                    setStroke(context.dpToDimensionPixelSize(3), primary)
+                                }
+                            )
+                        }
+                        foregroundCompat =
+                            LayerDrawable(listOfNotNull(foregroundCompat, checked).toTypedArray())
+                    }
+                }
+
+                override fun onChildViewDetachedFromWindow(view: View) {}
+            }
+        )
+        // Equal tiles with 16 dp outer edges and small gaps: each tile gets the same total inset.
+        val edge = context.getDimensionPixelSize(R.dimen.screen_edge_margin)
+        val gap = context.getDimensionPixelSize(R.dimen.search_photo_gap)
+        recyclerView.addItemDecoration(object : RecyclerView.ItemDecoration() {
+            override fun getItemOffsets(
+                outRect: Rect,
+                view: View,
+                parent: RecyclerView,
+                state: RecyclerView.State
+            ) {
+                if (parent.getChildViewHolder(view).bindingAdapter !== photosAdapter) return
+                val lp = view.layoutParams as GridLayoutManager.LayoutParams
+                val column = lp.spanIndex / lp.spanSize
+                val inset = (2 * edge + (photoColumns - 1) * gap) / photoColumns
+                val left = edge + column * (gap - inset)
+                outRect.set(left, gap / 2, inset - left, gap / 2)
+            }
+        })
         layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
             override fun getSpanSize(position: Int): Int {
                 if (!isShown) return 1
@@ -415,6 +481,7 @@ internal class SearchScreen(
         if (photoColumns != page.photoColumns) {
             photoColumns = page.photoColumns
             layoutManager.spanSizeLookup.invalidateSpanIndexCache()
+            recyclerView.invalidateItemDecorations()
         }
         head.submitList(page.head)
         photosAdapter.replaceListAndIsSearching(page.photos.map { it.file }, true)
