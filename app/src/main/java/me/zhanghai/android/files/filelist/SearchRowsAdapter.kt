@@ -42,6 +42,7 @@ import me.zhanghai.android.files.ui.CheckableItemBackground
 import me.zhanghai.android.files.util.dpToDimensionPixelSize
 import me.zhanghai.android.files.util.getColorByAttr
 import me.zhanghai.android.files.util.getDimensionPixelSize
+import me.zhanghai.android.files.util.getDrawableByAttr
 import me.zhanghai.android.files.util.isMaterial3Theme
 import me.zhanghai.android.files.util.layoutInflater
 
@@ -361,7 +362,12 @@ internal class SearchScreen(
                     holder as FileListAdapter.ViewHolder
                     (holder.iconLayout.parent as View).isVisible = false
                     (holder.thumbnailImage.parent as AspectRatioFrameLayout).apply {
-                        (layoutParams as ViewGroup.MarginLayoutParams).setMargins(0, 0, 0, 0)
+                        // marginStart/End win over left/right: clear both, else 16 dp stays.
+                        (layoutParams as ViewGroup.MarginLayoutParams).apply {
+                            setMargins(0, 0, 0, 0)
+                            marginStart = 0
+                            marginEnd = 0
+                        }
                         ratio = 1f
                     }
                     holder.itemLayout.apply {
@@ -375,13 +381,17 @@ internal class SearchScreen(
                             addState(
                                 intArrayOf(android.R.attr.state_checked),
                                 GradientDrawable().apply {
+                                    cornerRadius = corner
                                     setColor(ColorUtils.setAlphaComponent(primary, 0x66))
                                     setStroke(context.dpToDimensionPixelSize(3), primary)
                                 }
                             )
                         }
-                        foregroundCompat =
-                            LayerDrawable(listOfNotNull(foregroundCompat, checked).toTypedArray())
+                        // A full-tile ripple: the upstream M3 grid ripple is inset 4 dp.
+                        val ripple = context.getDrawableByAttr(
+                            androidx.appcompat.R.attr.selectableItemBackground
+                        )
+                        foregroundCompat = LayerDrawable(arrayOf(ripple, checked))
                     }
                 }
 
@@ -403,7 +413,12 @@ internal class SearchScreen(
                 val column = lp.spanIndex / lp.spanSize
                 val inset = (2 * edge + (photoColumns - 1) * gap) / photoColumns
                 val left = edge + column * (gap - inset)
-                outRect.set(left, gap / 2, inset - left, gap / 2)
+                // As the mockup: 4 dp above the first row, 8 dp below the last, 4 dp between.
+                val position = parent.getChildViewHolder(view).bindingAdapterPosition
+                val lastRow = (photosAdapter.itemCount - 1) / photoColumns
+                val top = if (position / photoColumns == 0) gap else gap / 2
+                val bottom = if (position / photoColumns == lastRow) 2 * gap else gap / 2
+                outRect.set(left, top, inset - left, bottom)
             }
         })
         layoutManager.spanSizeLookup = object : GridLayoutManager.SpanSizeLookup() {
@@ -481,13 +496,14 @@ internal class SearchScreen(
         if (photoColumns != page.photoColumns) {
             photoColumns = page.photoColumns
             layoutManager.spanSizeLookup.invalidateSpanIndexCache()
-            recyclerView.invalidateItemDecorations()
         }
         head.submitList(page.head)
         photosAdapter.replaceListAndIsSearching(page.photos.map { it.file }, true)
         mid.submitList(page.mid)
         namesAdapter.replaceListAndIsSearching(page.names.map { it.file }, true)
         tail.submitList(page.tail)
+        // The first and last photo rows get their own gaps: recompute them for the new list.
+        recyclerView.invalidateItemDecorations()
     }
 
     companion object {
