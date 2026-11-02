@@ -11,6 +11,8 @@
     <dimen name="search_progress_thickness">4dp</dimen>
     <dimen name="search_less_related_height">56dp</dimen>
     <dimen name="search_less_related_margin_top">8dp</dimen>
+    <dimen name="search_photo_gap">4dp</dimen>
+    <dimen name="search_photo_corner">8dp</dimen>
 
     <!-- Material 3 filter chips on the Material 3 theme; Material 2 chips on the Material 2 theme
          (the default on Android 10 and 11). -->
