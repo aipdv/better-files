@@ -151,6 +151,21 @@ internal class SearchRowsAdapter(
             }
             if (chip == row.selected && !view.isChecked) group.check(view.id)
         }
+        // A changed row comes back as a new view at scroll 0: keep the selected chip in view.
+        val scrollView = binding.root
+        val selectedView = group.getChildAt(row.chips.indexOfFirst { it.first == row.selected })
+        if (selectedView != null) {
+            scrollView.post {
+                val edge = group.paddingStart
+                val x = when {
+                    selectedView.right + edge > scrollView.scrollX + scrollView.width ->
+                        selectedView.right + edge - scrollView.width
+                    selectedView.left - edge < scrollView.scrollX -> selectedView.left - edge
+                    else -> return@post
+                }
+                scrollView.scrollTo(x, 0)
+            }
+        }
         group.setOnCheckedStateChangeListener { _, ids ->
             val chip = ids.firstOrNull()?.let { group.findViewById<Chip>(it)?.tag as? SearchChip }
             if (chip != null && chip != row.selected) onChipSelected(chip)
@@ -381,9 +396,11 @@ internal class SearchScreen(
                             addState(
                                 intArrayOf(android.R.attr.state_checked),
                                 GradientDrawable().apply {
-                                    cornerRadius = corner
+                                    // The stroke is drawn on a rect inset by half its width.
+                                    val stroke = context.dpToDimensionPixelSize(3)
+                                    cornerRadius = corner - stroke / 2f
                                     setColor(ColorUtils.setAlphaComponent(primary, 0x66))
-                                    setStroke(context.dpToDimensionPixelSize(3), primary)
+                                    setStroke(stroke, primary)
                                 }
                             )
                         }
