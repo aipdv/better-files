@@ -883,9 +883,6 @@
     <string name="search_chip_count_format">%1$s %2$s</string>
     <string name="search_see_all">See all</string>
     <string name="search_less_related_format">Less related (%1$d)</string>
-    <string name="search_reason_similar_meaning">Similar meaning</string>
-    <string name="search_reason_words_format">Has \"%1$s\"</string>
-    <string name="search_reason_separator">" · "</string>
     <string name="search_reading_progress_format">Reading your files · %1$d of %2$d</string>
     <string name="search_empty_format">No files match \"%1$s\"</string>
     <string name="search_empty_indexing_format">Still reading your files: %1$d of %2$d done. Try again in a few minutes.</string>
