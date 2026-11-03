@@ -1,0 +1,21 @@
+# When a release is published, ask bf-site to rebuild so bf.aipdv.com lists it at once.
+# Needs secret SITE_DISPATCH_TOKEN: a fine-grained token for aipdv/bf-site with Contents: read and write.
+name: Site rebuild
+
+on:
+  release:
+    types: [published]
+
+permissions: {}
+
+jobs:
+  dispatch:
+    runs-on: ubuntu-latest
+    steps:
+      - run: |
+          curl -fsS -X POST https://api.github.com/repos/aipdv/bf-site/dispatches \
+            -H "Authorization: Bearer $TOKEN" \
+            -H "Accept: application/vnd.github+json" \
+            -d '{"event_type":"app-release"}'
+        env:
+          TOKEN: ${{ secrets.SITE_DISPATCH_TOKEN }}
